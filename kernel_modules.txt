@@ -1,0 +1,39 @@
+- Linux supports inserting or removal of code to kernel at the runtime. The code that we add or remove at the runtime is called as kernel module.
+- without restarting the device you can use the functionalities from the kernel modules.
+
+- Two types of kernel modules are : 
+STATIC : which will be build into kernel during compile time
+DYNAMIC : .ko files that will be loaded at runtime.
+
+// BASIC SYNTAX FOR ANY MODULES
+
+// Every kernel module should include this header file
+// you should not use user space headers inside kernel modules
+#include <linux/module.h>
+// There will be no main function in modules
+// initialization function - should be one per module
+// this is will called once we are doing insmod
+// prototype = int func(void)
+// __init tells the compiler to keep the code in .init section of elf file
+// once the initialization is done this memory will be freed.
+static int __init my_module_init(void)
+{
+    return 0; // return 0 on success and negative error code on failure
+}
+
+// module cleanup function
+//prototype = void func(void)
+static void __exit my_module_exit(void)
+{
+}
+
+
+//Registration of module init and exit functions with the kernel
+module_init(my_module_init);
+module_exit(my_module_exit);
+
+//MODULE DESCRIPTION
+MODULE_DESCRIPTION("My First Kernel Module");
+MODULE_AUTHOR("Your Name");
+MODULE_LICENSE("GPL");
+
