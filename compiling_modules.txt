@@ -1,0 +1,15 @@
+// there are two ways to build dynamically loadable kernel modules
+// In tree module and out of tree module what we are building is out of tree modules
+// modules are built using kbuild (kernel build)
+// In The top level of kernel we should give
+make -C <path to kernel makefile> M=<path to module source> modules
+make -C <path to kernel makefile> M=<path to module source> modules_install
+
+// In the driver make file you should provide
+obj-m := <module_name>.o // for dynamically loadable modules
+
+// Printk is the kernel's equivalent of printf
+// it doesn't support floating point
+// use %d for integers, %s for strings
+// it uses Different log levels which can be found at <linux/kernel.h>
+// this log levels are compared with the console log level and if it's value is less than the console log level, the message will not be printed
