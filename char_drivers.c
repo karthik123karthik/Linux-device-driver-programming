@@ -29,8 +29,42 @@ struct cdev {
 	unsigned int count;
 } __randomize_layout;
 */
+loff_t pcd_llseek(struct file *filp, loff_t offset, int whence)
+{
+    // Implement the seek functionality here
+    return 0;
+}
 
-struct file_operations fops;
+ssize_t pcd_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+{
+	// Implement the read functionality here
+	return 0;
+}
+
+ssize_t pcd_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
+{
+	// Implement the write functionality here
+	return len;
+}
+
+int pcd_release(struct inode *inode, struct file *filp)
+{
+	// Implement the release functionality here
+	return 0;
+}
+
+int pcd_open(struct inode *inode, struct file *filp)
+{
+	// Implement the open functionality here
+	return 0;
+}
+
+struct file_operations fops = {
+	.llseek = pcd_llseek,
+	.read = pcd_read,
+	.write = pcd_write,
+	.open = pcd_open,
+};
 /*
 struct file_operations {
 	struct module *owner;
@@ -53,7 +87,7 @@ static int __init driver_init(void){
 	cdev.owner = THIS_MODULE; // THIS_MODULE is a macro that points to the current module
 
     /* Add cdev to kernel VFS*/
-	cdev_add(&cdev, dev, 1);
+	cdev_add(&cdev, dev_number, 1); // parameters are cdev pointer, device number and count of device numbers
 
     return 0;
 }
