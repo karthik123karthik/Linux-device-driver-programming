@@ -89,10 +89,27 @@ static int __init driver_init(void){
     /* Add cdev to kernel VFS*/
 	cdev_add(&cdev, dev_number, 1); // parameters are cdev pointer, device number and count of device numbers
 
+	/* create class in  sys/class which will be read by udevd deamon and dynamically device file is created in /dev */
+	class_create(THIS_MODULE, "my_class");
+
+	/* create device file in /dev */
+	device_create(my_class, NULL, dev_number, NULL, "my_device");
+
+	print_info("Device driver inserted successfully\n");
+
     return 0;
 }
 
 static void __exit driver_exit(void){
+	/* remove device file from /dev */
+	device_destroy(my_class, dev_number);
+	/* remove class from sys/class */
+	class_destroy(my_class);
+	/* remove cdev from kernel */
+	cdev_del(&cdev);
+	/* unregister device number */
+	unregister_chrdev_region(dev_number, 1);
+	printk(KERN_INFO "Device driver removed successfully\n");
     return;
 }
 
