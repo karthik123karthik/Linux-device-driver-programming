@@ -19,6 +19,7 @@
 
 dev_t dev_number; // device number variable
 struct cdev cdev;
+// this structure is the bridge between the kernels VFS and the device driver
 /*
 struct cdev {
 	struct kobject kobj;
@@ -85,6 +86,8 @@ static int __init driver_init(void){
     /* Initialize cdev structure with fops */
     cdev_init(&cdev, &fops);
 	cdev.owner = THIS_MODULE; // THIS_MODULE is a macro that points to the current module
+	// this will help in reference counting of the module
+	// if the module is in use it cannot be removed from the kernel
 
     /* Add cdev to kernel VFS*/
 	cdev_add(&cdev, dev_number, 1); // parameters are cdev pointer, device number and count of device numbers
