@@ -16,6 +16,9 @@
 // nencessary for the kernel to identify and manage the device driver
 #include <linux/module.h>
 #include <linux/fs.h>
+#define MAX_SIZE 1024
+
+char buffer[MAX_SIZE]; // buffer to store data
 
 dev_t dev_number; // device number variable
 struct cdev cdev;
@@ -36,10 +39,18 @@ loff_t pcd_llseek(struct file *filp, loff_t offset, int whence)
     return 0;
 }
 
-ssize_t pcd_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
+ssize_t pcd_read(struct file *filp, char __user *buf, size_t len, loff_t *fpos)
 {
 	// Implement the read functionality here
-	return 0;
+	if(*fpos + len > MAX_SIZE) // check for buffer overflow
+		len = MAX_SIZE - *fpos;
+
+	if(copy_to_user(buf, buffer[*fpos], len)) // copy data from kernel space to user space
+		return -EFAULT; // return error if copy fails
+
+	*fpos += len; // update file position
+
+	return len; // return number of bytes read
 }
 
 ssize_t pcd_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
