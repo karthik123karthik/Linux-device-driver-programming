@@ -16,6 +16,9 @@
 // nencessary for the kernel to identify and manage the device driver
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/uaccess.h> // for copy_to_user and copy_from_user
+
 #define MAX_SIZE 1024
 
 char buffer[MAX_SIZE]; // buffer to store data
@@ -36,7 +39,27 @@ struct cdev {
 loff_t pcd_llseek(struct file *filp, loff_t offset, int whence)
 {
     // Implement the seek functionality here
-    return 0;
+	switch(whence){
+		case SEEK_SET:
+			if(offset < 0 || offset > MAX_SIZE) // check for buffer overflow
+				return -EINVAL; // return error if offset is invalid
+			filp->f_pos = offset; // set file position to offset
+			break;
+		case SEEK_CUR:
+			if(filp->f_pos + offset < 0 || filp->f_pos + offset > MAX_SIZE) // check for buffer overflow
+				return -EINVAL; // return error if offset is invalid
+			filp->f_pos += offset; // update file position
+			break;
+		case SEEK_END:
+			if(MAX_SIZE + offset < 0 || MAX_SIZE + offset > MAX_SIZE) //	 check for buffer overflow			
+				return -EINVAL; // return error if offset is invalid
+			filp->f_pos = MAX_SIZE + offset; // set file position to end
+			break;
+		default:
+			return -EINVAL; // return error if whence is invalid
+	}
+
+    return filp->f_pos; // return the new file position
 }
 
 ssize_t pcd_read(struct file *filp, char __user *buf, size_t len, loff_t *fpos)
@@ -56,7 +79,18 @@ ssize_t pcd_read(struct file *filp, char __user *buf, size_t len, loff_t *fpos)
 ssize_t pcd_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
 	// Implement the write functionality here
-	return len;
+	if(*off + len > MAX_SIZE) // check for buffer overflow
+		len = MAX_SIZE - *off;
+	
+	if(len == 0) // if no space left in buffer
+		return -ENOMEM; // return error
+	
+	if(copy_from_user(buffer[*off], buf, len)) // copy data from user space to kernel space
+		return -EFAULT; // return error if copy fails
+
+	*off += len; // update file position
+
+	return len; // return number of bytes written
 }
 
 int pcd_release(struct inode *inode, struct file *filp)
