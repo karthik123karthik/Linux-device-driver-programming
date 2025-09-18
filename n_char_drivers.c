@@ -16,14 +16,92 @@ char device3_buffer[DEV3_SIZE];
 struct dev_private_date {
     char* buffer;
     size_t size;
+    char* serial_number;
     int perm;
     cdev_t cdev;
 };
 
 struct drv_private_data{
     size_t total_devices;
+    dev_t device_number;
+    struct class *class_pcd;
+    struct device *device_pcd;
     struct dev_private_date device_data[NUM_OF_DEVICES];
 };
+
+struct drv_private_data drv_data = {
+    .total_devices = NUM_OF_DEVICES,
+    .device_data   = {
+        [0] = {
+            .buffer = device1_buffer,
+            .size = DEV1_SIZE,
+            .serial_number = "PCD123456",
+            .perm = 0x1
+        },
+        [1] = {
+            .buffer = device2_buffer,
+            .size = DEV2_SIZE,
+            .serial_number = "PCD123457",
+            .perm = 0x10
+        },
+        [2] = {
+            .buffer = device3_buffer,
+            .size = DEV3_SIZE,
+            .serial_number = "PCD123458",
+            .perm = 0x11
+        }
+    }
+};
+
+struct file_operations fops = {
+    .owner = THIS_MODULE,
+    .read  = pcd_read,
+    .write = pcd_write,
+    .llseek = pcd_llseek,
+    .open  = pcd_open,
+    .release = pcd_release
+};
+
+static int __init driver_init(void){
+    int i;
+    printk(KERN_INFO "Driver Init\n");
+    /*Assign a device number*/
+    alloc_chrdev_region(&drv_data.device_number, 0, drv_data.total_devices, "my_device");
+
+    /*create device class under sys/class */
+    drv_data.class_pcd = class_create(THIS_MODULE, "my_class");
+    if (IS_ERR(drv_data.class_pcd)) {
+        unregister_chrdev_region(drv_data.device_number, drv_data.total_devices);
+        return PTR_ERR(drv_data.class_pcd);
+    }
+
+    for(i=0; i<drv_data.total_devices; i++){
+        printk(KERN_INFO "Device %d: Major: %d, Minor: %d\n", i, MAJOR(drv_data.device_number), MINOR(drv_data.device_number)+i);        /* Initialize cdev structure with fops */
+        /* Initialize cdev structure with fops */
+        cdev_init(&drv_data.device_data[i].cdev, &fops);
+        drv_data.device_data[i].cdev.owner = THIS_MODULE;
+        /* Register a device (cdev structure) with VFS */
+        cdev_add(&drv_data.device_data[i].cdev, drv_data.device_number + i, 1);
+        printk(KERN_INFO "Device %d added to the system\n", i);
+        /* Create device file for the device */
+        drv_data.device_pcd = device_create(drv_data.class_pcd, NULL, drv_data.device_number + i, NULL, "my_device%d", i);
+    }
+    
+    return 0;
+} 
+
+static void __exit driver_exit(void){
+    return;
+}
+
+
+module_init(driver_init);
+module_exit(driver_exit);
+
+
+MODULE_DESCRIPTION("A pseudo character driver which handles multiple devices");
+MODULE_AUTHOR("KARTHIK G K");
+MODULE_LICENSE("GPL");
 
 
 
