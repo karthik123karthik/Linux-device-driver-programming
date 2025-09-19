@@ -64,15 +64,21 @@ struct file_operations fops = {
 
 static int __init driver_init(void){
     int i;
+    int ret;
     printk(KERN_INFO "Driver Init\n");
     /*Assign a device number*/
-    alloc_chrdev_region(&drv_data.device_number, 0, drv_data.total_devices, "my_device");
+    ret = alloc_chrdev_region(&drv_data.device_number, 0, drv_data.total_devices, "my_device");
+    if (ret<0){
+        printk(KERN_INFO "Device Number allocation failed\n");
+        goto out;
+    }
 
     /*create device class under sys/class */
     drv_data.class_pcd = class_create(THIS_MODULE, "my_class");
     if (IS_ERR(drv_data.class_pcd)) {
-        unregister_chrdev_region(drv_data.device_number, drv_data.total_devices);
-        return PTR_ERR(drv_data.class_pcd);
+        printk(KERN_INFO "Class creation failed\n");
+        ret = PTR_ERR(drv_data.class_pcd);
+        goto unreg_chrdev;
     }
 
     for(i=0; i<drv_data.total_devices; i++){
@@ -81,16 +87,45 @@ static int __init driver_init(void){
         cdev_init(&drv_data.device_data[i].cdev, &fops);
         drv_data.device_data[i].cdev.owner = THIS_MODULE;
         /* Register a device (cdev structure) with VFS */
-        cdev_add(&drv_data.device_data[i].cdev, drv_data.device_number + i, 1);
+        ret = cdev_add(&drv_data.device_data[i].cdev, drv_data.device_number + i, 1);
+        if (ret<0){
+            printk(KERN_INFO "cdev_add failed for device %d\n", i);
+            goto cdev_del;
+        }
         printk(KERN_INFO "Device %d added to the system\n", i);
         /* Create device file for the device */
         drv_data.device_pcd = device_create(drv_data.class_pcd, NULL, drv_data.device_number + i, NULL, "my_device%d", i);
+
+        if (IS_ERR(drv_data.device_pcd)) {
+            printk(KERN_INFO "Device creation failed for device %d\n", i);
+            ret = PTR_ERR(drv_data.device_pcd);
+            goto dev_del;
+        }
     }
-    
-    return 0;
+
+    cdev_del:
+    dev_del:
+        while (i--) {
+            device_destroy(drv_data.class_pcd, drv_data.device_number + i);
+            cdev_del(&drv_data.device_data[i].cdev);
+        }
+        class_destroy(drv_data.class_pcd);
+    unreg_chrdev:
+        unregister_chrdev_region(drv_data.device_number, drv_data.total_devices);
+    out :
+        return ret;
 } 
 
 static void __exit driver_exit(void){
+    int i;
+    printk(KERN_INFO "Driver Exit\n");
+
+    for(i=0; i<drv_data.total_devices; i++){
+        device_destroy(drv_data.class_pcd, drv_data.device_number + i);
+        cdev_del(&drv_data.device_data[i].cdev);
+    }
+    class_destroy(drv_data.class_pcd);
+    unregister_chrdev_region(drv_data.device_number, drv_data.total_devices);
     return;
 }
 
