@@ -8,6 +8,11 @@
 #define DEV2_SIZE 2048
 #define DEV3_SIZE 4096
 
+#define RDONLY 0x10
+#define WRONLY 0x01
+#define RDWR   0x11
+
+
 
 char device1_buffer[DEV1_SIZE];
 char device2_buffer[DEV2_SIZE];
@@ -36,25 +41,31 @@ struct drv_private_data drv_data = {
             .buffer = device1_buffer,
             .size = DEV1_SIZE,
             .serial_number = "PCD123456",
-            .perm = 0x1
+            .perm = RDONLY
         },
         [1] = {
             .buffer = device2_buffer,
             .size = DEV2_SIZE,
             .serial_number = "PCD123457",
-            .perm = 0x10
+            .perm = WRONLY
         },
         [2] = {
             .buffer = device3_buffer,
             .size = DEV3_SIZE,
             .serial_number = "PCD123458",
-            .perm = 0x11
+            .perm = RDWR
         }
     }
 };
 
-bool check_permission(void){
-    return 0;
+int check_permission(int dev_perm, int file_perm){
+    if(dev_perm == RDWR)return 0;
+    if((dev_perm == RDONLY) && (file_perm & FMODE_READ) && !(file_perm & FMODE_WRITE)) return 0;
+        return 0;
+    if((dev_perm == WRONLY) && (file_perm & FMODE_WRITE) && !(file_perm & FMODE_READ)) return 0;
+        return 0;
+
+    return -EPERM;
 }
 
 int pcd_open(struct inode *inode, struct file *file){
@@ -70,7 +81,7 @@ int pcd_open(struct inode *inode, struct file *file){
     /*Save the device's private data structure in the file's private data field */
     file->private_data = dev_data;
 
-    ret = check_permission();
+    ret = check_permission(dev_data->perm, file->f_mode);
 
     if(ret!=0){
         printk(KERN_INFO "FILE Open failed\n");
