@@ -53,6 +53,91 @@ struct drv_private_data drv_data = {
     }
 };
 
+bool check_permission(void){
+    return 0;
+}
+
+int pcd_open(struct inode *inode, struct file *file){
+    int ret;
+    int minor_n;
+    struct dev_private_date *dev_data;
+
+    minor_n = MINOR(inode->i_rdev);
+    printk(KERN_INFO "Device Opened: %d\n", minor_n);
+
+    /*Get the device's private data structure */
+    dev_data = container_of(inode->i_cdev, struct dev_private_date, cdev);
+    /*Save the device's private data structure in the file's private data field */
+    file->private_data = dev_data;
+
+    ret = check_permission();
+
+    if(ret!=0){
+        printk(KERN_INFO "FILE Open failed\n");
+    }else
+        printk(KERN_INFO "FILE Open Successful\n");
+
+    return ret;
+}
+
+ssize_t pcd_read(struct file *file, char __user *buf, size_t len, loff_t *offset){
+    printk(KERN_INFO "Read requested for %zu bytes\n", len);
+    struct dev_private_date *dev_data = (struct dev_private_date*)file->private_data;
+    if(*offset >= dev_data->size) // check if offset is beyond device buffer size
+        return 0; // end of file
+    
+    if(*offset + len > dev_data->size) // adjust len if it exceeds buffer size
+        len = dev_data->size - *offset;
+
+    if(copy_to_user(buf, dev_data->buffer + *offset, len)){
+        return -EFAULT;
+    }
+
+    *offset += len;
+    return len;
+}
+
+ssize_t pcd_write(struct file *file, const char* __user buffer, ssize_t len, loff_t *offset){
+    printk(KERN_INFO "WRITE requested for %zu bytes\n", len);
+    struct dev_private_date *dev_data = (struct dev_private_date*)file->private_data;
+    if(*offset >= dev_data->size) // check if offset is beyond device buffer size
+        return 0; // end of file
+    
+    if(*offset + len > dev_data->size) // adjust len if it exceeds buffer size
+        len = dev_data->size - *offset;
+    
+    if(copy_from_user(dev_data->buffer + *offset, buffer, len)){
+        return -EFAULT;
+    }
+    *offset += len;
+    return len;
+}
+
+loff_t pcd_lseek(struct file *file, loff_t offset, int whence){
+    loff_t new_pos = 0;
+    struct dev_private_date *dev_data = (struct dev_private_date*)file->private_data;
+
+    switch(whence){
+        case SEEK_SET:
+            new_pos = offset;
+            break;
+        case SEEK_CUR:
+            new_pos = file->f_pos + offset;
+            break;
+        case SEEK_END:
+            new_pos = dev_data->size + offset;
+            break;
+        default:
+            return -EINVAL;
+    }
+
+    if(new_pos < 0 || new_pos > dev_data->size)
+        return -EINVAL;
+
+    file->f_pos = new_pos;
+    return new_pos;
+}
+
 struct file_operations fops = {
     .owner = THIS_MODULE,
     .read  = pcd_read,
