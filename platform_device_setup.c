@@ -1,5 +1,7 @@
 #include <linux/module.h>
-#include <linux/platfomrm_device.h>
+#include <linux/platform_device.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
 
 struct platform_data {
     int size;
@@ -21,18 +23,20 @@ struct platform_data platform_datas [] = {
 };
 
 struct platform_device my_platform_device1 = {
-    .name = "my_platform_device1",
+    .name = "my_platform_device",
     .id = 0,
     .dev = {
-        .platform_data = &platform_datas[0]
+        .platform_data = &platform_datas[0],
+        .release = NULL
     }
 };
 
 struct platform_device my_platform_device2 = {
-    .name = "my_platform_device2",
+    .name = "my_platform_device",
     .id = 1,
     .dev = {
-        .platform_data = &platform_datas[1]
+        .platform_data = &platform_datas[1],
+        .release = NULL
     }
 };
 
@@ -46,6 +50,8 @@ static int __init platform_device_init(void){
 
 static void __exit platform_device_exit(void){
     printk(KERN_INFO "Platform Device Module Exit\n");
+    platform_device_unregister(&my_platform_device1);
+    platform_device_unregister(&my_platform_device2);
     return;
 }
 
