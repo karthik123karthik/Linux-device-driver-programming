@@ -3,11 +3,13 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 
+// called when platform device is matched with driver
 int probe(struct platform_device *pdev) {
     printk(KERN_INFO "Platform device probed: %s\n", pdev->name);
     return 0;
 }
 
+// called when platform device is removed
 static int remove(struct platform_device *pdev) {
     printk(KERN_INFO "Platform device removed: %s\n", pdev->name);
     return 0;
@@ -17,9 +19,8 @@ struct platform_driver my_platform_driver = {
     .probe = probe,
     .remove = remove, // remove function pointer
     .driver = {
-        .name = "pseudo char platform device",
-    }
-};
+        .name = "my_platform_device", // same name as platform device
+    }};
 
 static __init int platform_device_driver_init(void) {
     platform_driver_register(&my_platform_driver);
