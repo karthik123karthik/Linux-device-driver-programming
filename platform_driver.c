@@ -3,8 +3,22 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 
+// kmalloc and kfree
+// kmalloc will allocate memory in kernel space in the ram
+// GFP_KERNEL is a macro that tells the kernel to allocate memory in a normal way
+#include <linux/slab.h>
+// kzalloc will initialize the allocated memory to zero
+// malloc is different from kmalloc as kmalloc will directly allocate memory in physical memory
+
+struct platform_data
+{
+    int size;
+    char *serial_number;
+    int perm; // permission
+};
+
 struct pcdev_private_data {
-    struct platform_data *pdata;
+    struct platform_data pdata;
     char* buffer;
     dev_t dev_num;
     struct cdev cdev;
@@ -20,6 +34,33 @@ struct driver_private_data {
 // called when platform device is matched with driver
 int probe(struct platform_device *pdev) {
     printk(KERN_INFO "Platform device probed: %s\n", pdev->name);
+    struct platform_data *pdata = dev_get_platdata(&pdev->dev);
+    struct pcdev_private_data *dev_data;
+    if (!pdata) {
+        printk(KERN_ALERT "No platform data available\n");
+        return -EINVAL;
+    }
+
+    printk(KERN_INFO "Device size: %d\n", pdata->size);
+    printk(KERN_INFO "Device serial number: %s\n", pdata->serial_number);
+    printk(KERN_INFO "Device permission: %d\n", pdata->perm);
+
+    dev_data = kzalloc(sizeof(struct pcdev_private_data), GFP_KERNEL);
+    if (!dev_data) {
+        printk(KERN_ALERT "Memory allocation for device data failed\n");
+        return -ENOMEM;
+    }
+    dev_data->pdata.size = pdata->size;
+    dev_data->pdata.serial_number = pdata->serial_number;
+    dev_data->pdata.perm = pdata->perm;
+    dev_data->buffer = kzalloc(pdata->size, GFP_KERNEL);
+    if (!dev_data->buffer) {
+        kfree(dev_data);
+        printk(KERN_ALERT "Memory allocation for device buffer failed\n");
+        return -ENOMEM;
+    }
+
+
     return 0;
 }
 
