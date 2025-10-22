@@ -31,9 +31,12 @@ struct driver_private_data {
     struct device *device_pcd;
 };
 
+static struct driver_private_data driver_data;
+
 // called when platform device is matched with driver
 int probe(struct platform_device *pdev) {
     printk(KERN_INFO "Platform device probed: %s\n", pdev->name);
+    int ret;
     struct platform_data *pdata = dev_get_platdata(&pdev->dev);
     struct pcdev_private_data *dev_data;
     if (!pdata) {
@@ -60,8 +63,32 @@ int probe(struct platform_device *pdev) {
         return -ENOMEM;
     }
 
+    // get device number (major and minor)
+    dev_data->dev_num = driver_data.device_num_base + pdev->id;
 
-    return 0;
+    // initialize cdev structure
+    cdev_init(&dev_data->cdev, &fops); // file operations can be added
+    dev_data->cdev.owner = THIS_MODULE;
+
+    ret = cdev_add(&dev_data->cdev, dev_data->dev_num, 1);
+    if (ret < 0) {
+        kfree(dev_data->buffer);
+        kfree(dev_data);
+        printk(KERN_ALERT "cdev_add failed\n");
+    }
+
+    //create device in sysfs
+    ret = device_create(driver_data.class_pcd, NULL, dev_data->dev_num, NULL, "pcd_device%d", pdev->id);
+    if (IS_ERR(ret)) {
+        cdev_del(&dev_data->cdev);
+        kfree(dev_data->buffer);
+        kfree(dev_data);
+        printk(KERN_ALERT "device_create failed\n");
+    }
+
+    printk(KERN_INFO "Device %s probed successfully\n", pdev->name);
+
+    return ret;
 }
 
 // called when platform device is removed
